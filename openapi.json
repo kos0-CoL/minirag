@@ -1,0 +1,320 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Mini RAG Pro API",
+    "description": "API para sistema RAG con Gemini, PostgreSQL y Redis",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Nazareno",
+      "email": "nazareno@universidad.edu"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000/api",
+      "description": "Development"
+    },
+    {
+      "url": "https://api.miniragpro.com",
+      "description": "Production"
+    }
+  ],
+  "paths": {
+    "/auth/registro": {
+      "post": {
+        "summary": "Registrar nuevo usuario",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "nombre": { "type": "string" },
+                  "password": { "type": "string", "format": "password" }
+                },
+                "required": ["email", "nombre", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Usuario creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string" },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Email ya existe o datos inválidos" },
+          "500": { "description": "Error del servidor" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Iniciar sesión",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "format": "password" }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login exitoso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string" },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Credenciales inválidas" }
+        }
+      }
+    },
+    "/chats": {
+      "post": {
+        "summary": "Crear nuevo chat",
+        "tags": ["Chats"],
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "titulo": { "type": "string" }
+                },
+                "required": ["titulo"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Chat creado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Chat" } } } },
+          "401": { "description": "No autorizado" }
+        }
+      },
+      "get": {
+        "summary": "Listar chats del usuario",
+        "tags": ["Chats"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Lista de chats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Chat" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queries/ask": {
+      "post": {
+        "summary": "Hacer pregunta RAG (ENDPOINT PRINCIPAL)",
+        "tags": ["Queries"],
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "chatId": { "type": "string", "format": "uuid" },
+                  "query": { "type": "string" },
+                  "agente": { "type": "string", "default": "general" },
+                  "modelo": { "type": "string", "default": "gemini-pro" },
+                  "k": { "type": "integer", "default": 3, "minimum": 1, "maximum": 10 },
+                  "modo": { "type": "string", "enum": ["default", "research", "creative", "technical"], "default": "default" },
+                  "followUp": { "type": "boolean", "default": false }
+                },
+                "required": ["chatId", "query"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Respuesta RAG",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "messageId": { "type": "string", "format": "uuid" },
+                    "respuesta": { "type": "string" },
+                    "documentosUtilizados": { "type": "array", "items": { "type": "string" } },
+                    "desdeCache": { "type": "boolean" },
+                    "tiempoMs": { "type": "number" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Query inválido" },
+          "404": { "description": "Chat no encontrado" }
+        }
+      }
+    },
+    "/documents/upload": {
+      "post": {
+        "summary": "Cargar documento",
+        "tags": ["Documents"],
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "archivo": { "type": "string", "format": "binary" },
+                  "chatId": { "type": "string", "format": "uuid" },
+                  "metadatos": { "type": "string" }
+                },
+                "required": ["archivo", "chatId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": { "description": "Documento aceptado, procesándose" },
+          "400": { "description": "Archivo inválido o demasiado grande" }
+        }
+      }
+    },
+    "/agents": {
+      "post": {
+        "summary": "Crear agente custom",
+        "tags": ["Agents"],
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AgentCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Agente creado" }
+        }
+      },
+      "get": {
+        "summary": "Listar agentes",
+        "tags": ["Agents"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Lista de agentes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Agent" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "email": { "type": "string" },
+          "nombre": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Chat": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "titulo": { "type": "string" },
+          "modo": { "type": "string" },
+          "k": { "type": "integer" },
+          "mensajes": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "role": { "type": "string", "enum": ["user", "assistant", "system"] },
+          "contenido": { "type": "string" },
+          "documentosUtilizados": { "type": "array", "items": { "type": "string" } },
+          "desdeCache": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Agent": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "nombre": { "type": "string" },
+          "descripcion": { "type": "string" },
+          "instrucciones": { "type": "string" },
+          "tipo": { "type": "string" },
+          "configuracionModelo": { "type": "object" }
+        }
+      },
+      "AgentCreate": {
+        "type": "object",
+        "properties": {
+          "nombre": { "type": "string" },
+          "descripcion": { "type": "string" },
+          "instrucciones": { "type": "string" },
+          "tipo": { "type": "string", "enum": ["general", "researcher", "summarizer", "translator", "coder"] }
+        },
+        "required": ["nombre", "instrucciones"]
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
