@@ -37,8 +37,7 @@ app.use(helmet({
   contentSecurityPolicy: false, // Esto desactiva temporalmente la restricción de scripts
 }));
 app.use(cors({
-  origin: "*", // Para probar, usa "*" (cualquiera). 
-               // Cuando tu frontend esté online, cambia "*" por la URL de tu frontend.
+  origin: process.env.FRONTEND_URL || "https://minirag-0zmw.onrender.com", 
   credentials: true
 }));
 app.use(morgan('combined'));
@@ -46,7 +45,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Esto dice: "Si alguien pide algo que no es una API, sírvele el archivo del frontend"
-app.use(express.static(path.join(__dirname, 'frontend/dist')));
+
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
@@ -103,7 +102,16 @@ app.use('/api/documents', authMiddleware, documentRoutes);
 app.use('/api/agents', authMiddleware, agentRoutes);
 app.use('/api/queries', authMiddleware, queryRoutes);
 app.use('/api/models', modelRoutes);
+// --- Bloque del Frontend ---
+app.use(express.static(path.join(__dirname, 'frontend/dist')));
 
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
+});
+// ---------------------------
+
+// --- Manejador de errores al final ---
+app.use(errorHandler);
 // ============= ERROR HANDLING =============
 app.use(errorHandler);
 
