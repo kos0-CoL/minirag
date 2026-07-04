@@ -8,13 +8,22 @@ async function migrate() {
   console.log('🔄 Running database migrations...');
 
   try {
-    const conn = await createConnection({
+    const dbType = process.env.DB_TYPE || 'sqlite';
+
+    const config = dbType === 'postgres' ? {
       type: 'postgres',
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432'),
       username: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME || 'mini_rag_pro',
+    } : {
+      type: 'better-sqlite3',
+      database: process.env.SQLITE_PATH || './data/mini-rag.db',
+    };
+
+    const conn = await createConnection({
+      ...config,
       entities: ['src/entities/*.js'],
       synchronize: true,
       logging: true
