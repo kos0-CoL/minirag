@@ -102,10 +102,16 @@ app.use('/api/documents', authMiddleware, documentRoutes);
 app.use('/api/agents', authMiddleware, agentRoutes);
 app.use('/api/queries', authMiddleware, queryRoutes);
 app.use('/api/models', modelRoutes);
-// --- Bloque del Frontend ---
+// Asegúrate de que esta línea esté ANTES del app.get('*')
 app.use(express.static(path.join(__dirname, 'frontend/dist')));
 
-app.get('*', (req, res) => {
+// Esta ruta debe ir DESPUÉS de todas tus rutas de API
+app.get('*', (req, res, next) => {
+  // Si la petición es para un archivo (tiene extensión), que el express.static se encargue
+  if (req.url.includes('.')) {
+    return next();
+  }
+  // Si no es un archivo (es una ruta de tu app), envía el index.html
   res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
 });
 // ---------------------------
