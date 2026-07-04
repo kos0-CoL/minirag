@@ -33,7 +33,9 @@ const PORT = process.env.PORT || 5000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ============= MIDDLEWARE =============
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false, // Esto desactiva temporalmente la restricción de scripts
+}));
 app.use(cors({
   origin: "*", // Para probar, usa "*" (cualquiera). 
                // Cuando tu frontend esté online, cambia "*" por la URL de tu frontend.
