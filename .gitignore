@@ -6,7 +6,7 @@ yarn-error.log*
 .npm
 
 # Build
-dist/
+/dist/
 build/
 *.tsbuildinfo
 
@@ -67,7 +67,7 @@ public/uploads/
 out/
 
 # Backend specific
-dist/
+/dist/
 src/**/*.js
 src/**/*.js.map
 node_modules/
