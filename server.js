@@ -102,16 +102,14 @@ app.use('/api/documents', authMiddleware, documentRoutes);
 app.use('/api/agents', authMiddleware, agentRoutes);
 app.use('/api/queries', authMiddleware, queryRoutes);
 app.use('/api/models', modelRoutes);
-// Asegúrate de que esta línea esté ANTES del app.get('*')
+// 1. Esto sirve los archivos (CSS, JS, imágenes) desde la carpeta assets
+app.use('/assets', express.static(path.join(__dirname, 'frontend/dist/assets')));
+
+// 2. Esto sirve los archivos que están en la raíz de dist (como favicon, etc)
 app.use(express.static(path.join(__dirname, 'frontend/dist')));
 
-// Esta ruta debe ir DESPUÉS de todas tus rutas de API
-app.get('*', (req, res, next) => {
-  // Si la petición es para un archivo (tiene extensión), que el express.static se encargue
-  if (req.url.includes('.')) {
-    return next();
-  }
-  // Si no es un archivo (es una ruta de tu app), envía el index.html
+// 3. Esta es la ruta para SPA (Single Page Application)
+app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
 });
 // ---------------------------
