@@ -14,7 +14,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const { setUserProfile, setToken } = useAppStore();
   const navigate = useNavigate();
-  const { handleGoogleSuccess, loading: googleLoading, error: googleError } = useGoogleAuth();
+  const { handleGoogleSuccess, handleGoogleError, loading: googleLoading, error: googleError } = useGoogleAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +49,7 @@ export default function RegisterPage() {
 
         <div className="mb-6">
           {import.meta.env.VITE_GOOGLE_CLIENT_ID && import.meta.env.VITE_GOOGLE_CLIENT_ID !== 'your-google-client-id.apps.googleusercontent.com' ? (
-            <GoogleLoginButton onSuccess={handleGoogleSuccess} label="Registrarse con Google" />
+            <GoogleLoginButton onSuccess={handleGoogleSuccess} onError={handleGoogleError} label="Registrarse con Google" />
           ) : null}
           <div className="relative mt-4">
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-300 dark:border-gray-600" /></div>

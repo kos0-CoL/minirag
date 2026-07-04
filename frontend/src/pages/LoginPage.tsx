@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { setUserProfile, setToken, setIsGuest } = useAppStore();
   const navigate = useNavigate();
-  const { handleGoogleSuccess, loading: googleLoading, error: googleError, clearError: clearGoogleError } = useGoogleAuth();
+  const { handleGoogleSuccess, handleGoogleError, loading: googleLoading, error: googleError, clearError: clearGoogleError } = useGoogleAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +53,7 @@ export default function LoginPage() {
 
         <div className="space-y-3 mb-6">
           {import.meta.env.VITE_GOOGLE_CLIENT_ID && import.meta.env.VITE_GOOGLE_CLIENT_ID !== 'your-google-client-id.apps.googleusercontent.com' ? (
-            <GoogleLoginButton onSuccess={handleGoogleSuccess} />
+            <GoogleLoginButton onSuccess={handleGoogleSuccess} onError={handleGoogleError} />
           ) : (
             <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-xs text-yellow-700 dark:text-yellow-400">
               Google Client ID no configurado. Usa email o modo invitado.

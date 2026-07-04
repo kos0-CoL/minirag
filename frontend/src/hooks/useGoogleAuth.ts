@@ -10,22 +10,32 @@ export function useGoogleAuth() {
   const navigate = useNavigate();
 
   const handleGoogleSuccess = useCallback(async (credential: string) => {
+    console.log('Google auth started, sending credential to backend...');
     setLoading(true);
     setError('');
     try {
       const data: any = await apiClient.googleAuth(credential);
-      if (!data?.user) throw new Error('Respuesta inválida');
+      console.log('Backend response:', data);
+      if (!data?.user) throw new Error('Respuesta inválida del servidor');
       setUserProfile(data.user);
       setToken(data.token);
+      console.log('Google auth successful, navigating to /chat');
       navigate('/chat');
     } catch (err: any) {
-      setError(err?.error || 'Error al autenticar con Google');
+      console.error('Google auth error:', err);
+      const errorMsg = err?.error || err?.message || 'Error al autenticar con Google';
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
   }, [setUserProfile, setToken, navigate]);
 
+  const handleGoogleError = useCallback((error: string) => {
+    console.error('Google button error:', error);
+    setError(error);
+  }, []);
+
   const clearError = useCallback(() => setError(''), []);
 
-  return { handleGoogleSuccess, loading, error, clearError };
+  return { handleGoogleSuccess, handleGoogleError, loading, error, clearError };
 }
