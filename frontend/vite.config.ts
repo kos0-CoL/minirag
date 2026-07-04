@@ -19,4 +19,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
   },
+  // Rende VITE_API_URL disponibile durante il build
+  define: {
+    'import.meta.env.VITE_API_URL': JSON.stringify(
+      process.env.VITE_API_URL || null
+    ),
+  },
 });

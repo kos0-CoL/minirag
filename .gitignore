@@ -10,11 +10,13 @@ dist/
 build/
 *.tsbuildinfo
 
-# Environment
+# Environment (ignora solo .env con valori reali, non .env.example o .env.production)
 .env
 .env.local
 .env.*.local
 .env.production.local
+!frontend/.env
+!frontend/.env.production
 
 # IDE
 .vscode/

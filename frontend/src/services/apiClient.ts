@@ -5,7 +5,9 @@ class ApiClient {
 
   constructor() {
     this.client = axios.create({
-      baseURL: '/api',
+      // In sviluppo usa il proxy di Vite ( /api ),
+      // In produzione usa l'URL completo dal backend
+      baseURL: import.meta.env.VITE_API_URL || '/api',
       timeout: 60000,
     });
 

@@ -31,11 +31,22 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// ============= MIDDLEWARE =============
+// ============= CORS CONFIGURATION =============
+const ALLOWED_ORIGINS = [
+  process.env.FRONTEND_URL,
+  'http://localhost:5173',  // Desarrollo local
+].filter(Boolean);
+
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "https://minirag-0zmw.onrender.com", 
-  credentials: true
+  origin: (origin, callback) => {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
 }));
 app.use(morgan('combined'));
 app.use(express.json({ limit: '50mb' }));

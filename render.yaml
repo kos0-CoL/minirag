@@ -1,0 +1,62 @@
+# render.yaml - Configurazione per deploy automatico su Render
+# Documentazione: https://render.com/docs/blueprint-spec
+
+services:
+  # ========== BACKEND API ==========
+  - type: web
+    name: mini-rag-backend
+    runtime: node
+    region: oregon  # o europe per Europa
+    buildCommand: npm install && npm run migrate
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DB_TYPE
+        value: postgres
+      - key: DB_HOST
+        fromDatabase:
+          name: mini-rag-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: mini-rag-db
+          property: port
+      - key: DB_USER
+        fromDatabase:
+          name: mini-rag-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: mini-rag-db
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: mini-rag-db
+          property: database
+      - key: GEMINI_API_KEY
+        sync: false  # Da impostare manualmente
+      - key: JWT_SECRET
+        generateValue: true  # Genera automaticamente un secret sicuro
+      - key: FRONTEND_URL
+        value: https://mini-rag-frontend.onrender.com  # Aggiorna con il tuo URL
+
+  # ========== FRONTEND (STATIC SITE) ==========
+  - type: static_site
+    name: mini-rag-frontend
+    runtime: node
+    region: oregon
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://mini-rag-backend.onrender.com/api  # Aggiorna con il tuo URL backend
+
+databases:
+  # ========== POSTGRESQL DATABASE ==========
+  - name: mini-rag-db
+    databaseName: mini_rag_pro
+    plan: starter  # $7/mese, 1GB storage
+    ipAllowList: []  # Solo accesso interno
