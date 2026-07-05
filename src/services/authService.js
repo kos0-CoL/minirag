@@ -58,6 +58,8 @@ export class AuthService {
 
   async googleAuth(googleToken) {
     const clientId = process.env.GOOGLE_CLIENT_ID;
+    console.log('Google auth started, token type:', googleToken.includes('.') ? 'JWT' : 'OAuth code');
+
     try {
       let payload;
 
@@ -72,10 +74,15 @@ export class AuthService {
         payload = ticket.getPayload();
       } else {
         // Método nuevo: intercambiar código OAuth por token
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        console.log('Exchanging code for token, redirect_uri:', frontendUrl);
+
         const { tokens } = await googleClient.getToken({
           code: googleToken,
-          redirect_uri: process.env.FRONTEND_URL || 'http://localhost:5173',
+          redirect_uri: frontendUrl,
         });
+        console.log('Token received from Google');
+
         const ticket = await googleClient.verifyIdToken({
           idToken: tokens.id_token,
           audience: [clientId],
@@ -84,8 +91,10 @@ export class AuthService {
       }
 
       if (!payload || !payload.email) {
-        throw Object.assign(new Error('Token de Google inválido'), { status: 401 });
+        throw Object.assign(new Error('Invalid Google token - no email'), { status: 401 });
       }
+
+      console.log('Google auth success for:', payload.email);
 
       const repo = getRepository(User);
       let user = await repo.findOne({ where: { email: payload.email } });
@@ -104,10 +113,14 @@ export class AuthService {
       return { user: { id: user.id, email: user.email, nombre: user.nombre }, token };
     } catch (error) {
       console.error('Google auth error:', error.message);
+      console.error('Full error:', JSON.stringify(error, null, 2));
       if (error.message?.includes('audience')) {
         throw Object.assign(new Error('Google configuration invalid. Verify GOOGLE_CLIENT_ID matches in backend and frontend.'), { status: 500 });
       }
-      throw Object.assign(new Error('Error verifying Google token'), { status: 401 });
+      if (error.message?.includes('redirect_uri')) {
+        throw Object.assign(new Error('Redirect URI mismatch. Check FRONTEND_URL in backend and redirect URI in Google Cloud Console.'), { status: 500 });
+      }
+      throw Object.assign(new Error(`Google auth failed: ${error.message}`), { status: 401 });
     }
   }
 }
