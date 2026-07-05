@@ -75,11 +75,12 @@ export class AuthService {
       } else {
         // Método nuevo: intercambiar código OAuth por token
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-        console.log('Exchanging code for token, redirect_uri:', frontendUrl);
+        const redirectUri = `${frontendUrl}/login`;
+        console.log('Exchanging code for token, redirect_uri:', redirectUri);
 
         const { tokens } = await googleClient.getToken({
           code: googleToken,
-          redirect_uri: frontendUrl,
+          redirect_uri: redirectUri,
         });
         console.log('Token received from Google');
 

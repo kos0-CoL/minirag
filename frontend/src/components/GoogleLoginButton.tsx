@@ -6,7 +6,8 @@ interface Props {
 export default function GoogleLoginButton({ onError, label = 'Continuar con Google' }: Props) {
   const handleGoogleClick = () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const redirectUri = window.location.origin;
+    // Redirigir a /login para que el hook useGoogleAuth procese el código
+    const redirectUri = `${window.location.origin}/login`;
 
     if (!clientId) {
       onError?.('Google Client ID not configured');
