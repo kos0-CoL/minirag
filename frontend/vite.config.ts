@@ -20,13 +20,6 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
   },
-  // Variables de entorno para el build
-  define: {
-    'import.meta.env.VITE_API_URL': JSON.stringify(
-      process.env.VITE_API_URL || null
-    ),
-    'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(
-      process.env.VITE_GOOGLE_CLIENT_ID || null
-    ),
-  },
+  // Vite lee automáticamente los archivos .env
+  // No necesitamos definir las variables aquí
 });
