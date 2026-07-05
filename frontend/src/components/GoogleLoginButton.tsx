@@ -1,73 +1,34 @@
-import { useState } from 'react';
-
 interface Props {
-  onSuccess: (credential: string) => void;
   onError?: (error: string) => void;
   label?: string;
 }
 
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: any) => void;
-          prompt: (callback?: (notification: any) => void) => void;
-        };
-      };
-    };
-  }
-}
-
-export default function GoogleLoginButton({ onSuccess, onError, label = 'Continuar con Google' }: Props) {
-  const [loading, setLoading] = useState(false);
-
+export default function GoogleLoginButton({ onError, label = 'Continuar con Google' }: Props) {
   const handleGoogleClick = () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const redirectUri = window.location.origin;
+
     if (!clientId) {
       onError?.('Google Client ID not configured');
       return;
     }
 
-    if (!window.google) {
-      onError?.('Google Identity Services not loaded');
-      return;
-    }
+    // OAuth 2.0 redirect - funciona SIEMPRE
+    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    authUrl.searchParams.set('client_id', clientId);
+    authUrl.searchParams.set('redirect_uri', redirectUri);
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('scope', 'openid email profile');
+    authUrl.searchParams.set('access_type', 'offline');
+    authUrl.searchParams.set('prompt', 'select_account');
 
-    setLoading(true);
-
-    // Inicializar y mostrar One Tap prompt
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: (res: any) => {
-        setLoading(false);
-        if (res?.credential) {
-          onSuccess(res.credential);
-        } else {
-          onError?.('No credential received from Google');
-        }
-      },
-      cancel_on_tap_outside: false,
-    });
-
-    // Mostrar el prompt de One Tap
-    window.google.accounts.id.prompt((notification: any) => {
-      setLoading(false);
-      if (notification?.isNotDisplayed()) {
-        console.warn('Google One Tap not displayed:', notification.getNotDisplayedReason());
-        onError?.('Google popup was blocked. Please allow popups for this site.');
-      }
-      if (notification?.isSkippedMoment()) {
-        console.warn('Google One Tap skipped:', notification.getSkippedReason());
-      }
-    });
+    window.location.href = authUrl.toString();
   };
 
   return (
     <button
       onClick={handleGoogleClick}
-      disabled={loading}
-      className="w-full py-2.5 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
+      className="w-full py-2.5 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium rounded-lg transition flex items-center justify-center gap-2"
     >
       <svg className="w-5 h-5" viewBox="0 0 24 24">
         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
@@ -75,7 +36,7 @@ export default function GoogleLoginButton({ onSuccess, onError, label = 'Continu
         <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
       </svg>
-      {loading ? 'Conectando...' : label}
+      {label}
     </button>
   );
 }

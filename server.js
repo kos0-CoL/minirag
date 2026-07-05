@@ -92,9 +92,15 @@ app.use('/api/queries', authMiddleware, queryRoutes);
 app.use('/api/models', modelRoutes);
 
 // ============= FRONTEND & STATIC FILES (SOLO AL FINAL) =============
-app.use(express.static(path.join(__dirname, 'frontend/dist')));
+const frontendPath = path.join(__dirname, 'frontend/dist');
+app.use(express.static(frontendPath, {
+  index: false,  // No servir index.html automáticamente
+  extensions: ['js', 'css', 'html']  // Extensiones permitidas
+}));
+
+// Servir index.html para rutas de la SPA
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
+  res.sendFile(path.join(frontendPath, 'index.html'));
 });
 
 // ============= ERROR HANDLING =============

@@ -5,7 +5,10 @@ import User from '../entities/User.js';
 import { generateToken } from '../middleware/auth.js';
 
 const SALT_ROUNDS = 10;
-const googleClient = new OAuth2Client();
+const googleClient = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET
+);
 
 export class AuthService {
   async register(email, nombre, password) {
@@ -56,11 +59,30 @@ export class AuthService {
   async googleAuth(googleToken) {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     try {
-      const ticket = await googleClient.verifyIdToken({
-        idToken: googleToken,
-        audience: [clientId],
-      });
-      const payload = ticket.getPayload();
+      let payload;
+
+      // Si el código tiene un punto, es un JWT token (método viejo)
+      // Si no, es un código OAuth (método nuevo)
+      if (googleToken.includes('.')) {
+        // Método viejo: verificar token JWT directamente
+        const ticket = await googleClient.verifyIdToken({
+          idToken: googleToken,
+          audience: [clientId],
+        });
+        payload = ticket.getPayload();
+      } else {
+        // Método nuevo: intercambiar código OAuth por token
+        const { tokens } = await googleClient.getToken({
+          code: googleToken,
+          redirect_uri: process.env.FRONTEND_URL || 'http://localhost:5173',
+        });
+        const ticket = await googleClient.verifyIdToken({
+          idToken: tokens.id_token,
+          audience: [clientId],
+        });
+        payload = ticket.getPayload();
+      }
+
       if (!payload || !payload.email) {
         throw Object.assign(new Error('Token de Google inválido'), { status: 401 });
       }
@@ -83,9 +105,9 @@ export class AuthService {
     } catch (error) {
       console.error('Google auth error:', error.message);
       if (error.message?.includes('audience')) {
-        throw Object.assign(new Error('Configuración de Google inválida. Verifica GOOGLE_CLIENT_ID en backend y frontend coinciden.'), { status: 500 });
+        throw Object.assign(new Error('Google configuration invalid. Verify GOOGLE_CLIENT_ID matches in backend and frontend.'), { status: 500 });
       }
-      throw Object.assign(new Error('Error al verificar token de Google'), { status: 401 });
+      throw Object.assign(new Error('Error verifying Google token'), { status: 401 });
     }
   }
 }
