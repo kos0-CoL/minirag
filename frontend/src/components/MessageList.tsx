@@ -8,8 +8,12 @@ export default function MessageList({ mensajes, loading, onIndexed }: { mensajes
           Envía un mensaje para empezar. Los documentos cargados se usarán como contexto.
         </div>
       )}
-      {mensajes.map((msg) => (
-        <MessageBubble key={msg.id} message={msg} onIndexed={onIndexed} />
+      {mensajes.map((msg, index) => (
+        <MessageBubble
+          key={`${msg.fileName ?? msg.id ?? 'msg'}-${index}`}
+          message={msg}
+          onIndexed={onIndexed}
+        />
       ))}
       {loading && (
         <div className="flex items-start gap-3">

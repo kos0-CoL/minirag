@@ -152,7 +152,7 @@ export default function MessageBubble({ message, onIndexed }: Props) {
   };
 
   return (
-    <div className={clsx('flex items-start gap-3', isUser ? 'flex-row-reverse' : '')}>
+    <div data-testid="message-bubble-root" className={clsx('flex items-start gap-3', isUser ? 'flex-row-reverse' : '')}>
       <div className={clsx(
         'w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold',
         isUser ? 'theme-accent-light' : 'theme-border'
@@ -185,8 +185,8 @@ export default function MessageBubble({ message, onIndexed }: Props) {
 
         {message.documentosUtilizados?.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
-            {message.documentosUtilizados.map((docId: string) => (
-              <span key={docId} className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--theme-accent-light)', color: 'var(--theme-text-secondary)' }}>
+            {message.documentosUtilizados.map((docId: string, i: number) => (
+              <span key={`${docId}-${i}`} className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--theme-accent-light)', color: 'var(--theme-text-secondary)' }}>
                 <FileText className="w-3 h-3 inline mr-0.5" />
                 {docId.slice(0, 10)}
               </span>
