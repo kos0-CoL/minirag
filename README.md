@@ -419,10 +419,10 @@ MIT
 
 ## 👨‍💻 Autor
 
-Nazareno - Universidad
+Nazareno - Kimun
 
 ---
 
 **Última actualización**: Junio 2026
 
-Para soporte: `nazareno@universidad.edu`
+Para soporte: `gonzaleznazareno@abc.gob.ar`
