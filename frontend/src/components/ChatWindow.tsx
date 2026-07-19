@@ -2,13 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { apiClient } from '@/services/apiClient';
 import { searchChunks, getDocuments } from '@/utils/chunkEngine';
+import { toggleDocumentSelection } from '@/utils/documentSelection';
+import { buildContextForQuestion } from '@/utils/contextBuilder';
 import { getActiveAgents } from '@/data/agentsSkills';
-import { getAvailableModels } from '@/data/models';
+import { getAvailableModels, getProviderForModel } from '@/data/models';
 import axios from 'axios';
 import MessageList from './MessageList';
 import InputArea from './InputArea';
 import {
-  Bot, Settings, BookOpen, Zap, Sparkles, MessageSquare, FileText, Check,
+  Bot, Settings, BookOpen, Zap, Sparkles, MessageSquare, FileText, Check, Search,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -27,11 +29,7 @@ export default function ChatWindow() {
   const [showDocPanel, setShowDocPanel] = useState(false);
 
   const toggleDoc = (id: string) => {
-    setSelectedDocIds(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+    setSelectedDocIds(prev => toggleDocumentSelection(prev, id));
   };
 
   useEffect(() => { setDocsCount(getDocuments().length); }, [documentos]);
@@ -39,13 +37,16 @@ export default function ChatWindow() {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatActual?.mensajes]);
 
-  // Direct Gemini call for guest users (no backend token needed)
-  const callGeminiDirect = async (query: string, contexto: string) => {
+  const callProviderDirect = async (query: string, contexto: string) => {
     const allKeys = JSON.parse(localStorage.getItem('minirag_apikeys') || '{}');
-    const apiKey = allKeys.GEMINI;
-    if (!apiKey) return Promise.reject(new Error('⚠️ Configurá tu API Key de Gemini en el Panel de Control'));
+    const { provider, apiKey } = getProviderForModel(modelo, allKeys);
 
-    const prompt = `Eres un asistente de IA especializado. Usa el contexto para responder.
+    if (!apiKey) {
+      return Promise.reject(new Error(`⚠️ Configurá tu API Key de ${provider === 'GEMINI' ? 'Gemini' : provider} en el Panel de Control`));
+    }
+
+    if (provider === 'GEMINI') {
+      const prompt = `Eres un asistente de IA especializado. Usa el contexto para responder.
 
 CONTEXTO:
 ${contexto || 'No hay documentos disponibles.'}
@@ -86,14 +87,37 @@ ${query}
 
 RESPUESTA:`;
 
-    const res = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`,
-      { contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: modoRespuesta === 'quick' ? 0.3 : 0.7, maxOutputTokens: modoRespuesta === 'quick' ? 1024 : 2048 }
-      },
-      { params: { key: apiKey } }
-    );
-    return res.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const res = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`,
+        { contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: modoRespuesta === 'quick' ? 0.3 : 0.7, maxOutputTokens: modoRespuesta === 'quick' ? 1024 : 2048 }
+        },
+        { params: { key: apiKey } }
+      );
+      return res.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    }
+
+    if (provider === 'MISTRAL') {
+      const prompt = `Responde de forma útil y breve. Usa el contexto si existe.\n\nCONTEXTO:\n${contexto || 'No hay documentos disponibles.'}\n\nPREGUNTA:\n${query}\n\nRESPUESTA:`;
+
+      const res = await axios.post(
+        'https://api.mistral.ai/v1/chat/completions',
+        {
+          model: modelo,
+          messages: [
+            { role: 'system', content: 'Eres un asistente útil.' },
+            { role: 'user', content: prompt },
+          ],
+          temperature: modoRespuesta === 'quick' ? 0.3 : 0.7,
+          max_tokens: modoRespuesta === 'quick' ? 1024 : 2048,
+        },
+        { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' } }
+      );
+
+      return res.data.choices?.[0]?.message?.content || '';
+    }
+
+    return Promise.reject(new Error(`Proveedor no soportado: ${provider}`));
   };
 
   const handleSend = async (query: string) => {
@@ -106,33 +130,8 @@ RESPUESTA:`;
 
     try {
       const results = searchChunks(query, kResultados || 3);
-      let contexto = '';
-      let docsUsados: string[] = [];
-
-      if (results.length > 0) {
-        docsUsados = [...new Set(results.map(r => r.documento.nombre))];
-        contexto = results.map((r, i) =>
-          `[${i + 1}] ${r.chunk.contenido}\n(Fuente: ${r.documento.nombre})`
-        ).join('\n\n---\n\n');
-      }
-
-      // Add chunks from manually selected documents
-      if (selectedDocIds.size > 0) {
-        const allDocs = getDocuments();
-        let selectedChunks: { texto: string; docNombre: string }[] = [];
-        for (const doc of allDocs) {
-          if (selectedDocIds.has(doc.id)) {
-            docsUsados.push(doc.nombre);
-            for (const chunk of doc.chunks) {
-              selectedChunks.push({ texto: chunk.contenido, docNombre: doc.nombre });
-            }
-          }
-        }
-        const selectedContext = selectedChunks.map((c, i) =>
-          `[${i + 1}] ${c.texto}\n(Fuente: ${c.docNombre})`
-        ).join('\n\n---\n\n');
-        contexto = contexto ? contexto + '\n\n---\n\n' + selectedContext : selectedContext;
-      }
+      const allDocs = getDocuments();
+      const { context: contexto, docsUsados } = buildContextForQuestion(results, selectedDocIds, allDocs);
 
       const agenteInfo = agentes.find(a => a.id === agenteActual);
       const allKeys = JSON.parse(localStorage.getItem('minirag_apikeys') || '{}');
@@ -141,8 +140,7 @@ RESPUESTA:`;
       let result: any;
 
       if (isGuest) {
-        // Guest: call Gemini directly from browser
-        const texto = await callGeminiDirect(query, contexto);
+        const texto = await callProviderDirect(query, contexto);
         result = {
           respuesta: texto,
           documentosUtilizados: docsUsados,
@@ -302,6 +300,55 @@ RESPUESTA:`;
             <span className="text-[10px]" style={{ color: 'var(--theme-text-secondary)' }}>K={kResultados}</span>
           )}
         </div>
+
+        {/* Active Context Indicator */}
+        {selectedDocIds.size > 0 && (() => {
+          const selectedDocNames = getDocuments()
+            .filter(doc => selectedDocIds.has(doc.id))
+            .map(doc => ({ name: doc.nombre, chunks: doc.chunks.length }));
+
+          return (
+            <div className="px-4 py-2 flex items-center gap-2 text-xs"
+              style={{
+                backgroundColor: 'var(--theme-accent-light)',
+                borderTop: '1px solid var(--theme-border)',
+              }}>
+              <div className="flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5" style={{ color: 'var(--theme-primary)' }} />
+                <span className="font-medium" style={{ color: 'var(--theme-primary)' }}>
+                  Documento activo:
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {selectedDocNames.map((doc, i) => (
+                  <span key={i} className="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                    style={{
+                      backgroundColor: 'var(--theme-primary)',
+                      color: '#fff',
+                    }}>
+                    {doc.name} ({doc.chunks} chunks)
+                  </span>
+                ))}
+              </div>
+              <span className="text-[10px] ml-auto" style={{ color: 'var(--theme-text-secondary)' }}>
+                ✦ Prioridad total
+              </span>
+            </div>
+          );
+        })()}
+
+        {selectedDocIds.size === 0 && docsCount > 0 && (
+          <div className="px-4 py-2 flex items-center gap-2 text-xs"
+            style={{
+              backgroundColor: 'var(--theme-bg-chat)',
+              borderTop: '1px solid var(--theme-border)',
+            }}>
+            <Search className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-secondary)' }} />
+            <span style={{ color: 'var(--theme-text-secondary)' }}>
+              Modo búsqueda automática — se usarán los {kResultados || 3} chunks más relevantes
+            </span>
+          </div>
+        )}
       </div>
 
       <MessageList mensajes={chatActual.mensajes || []} loading={loading} onIndexed={() => setDocsCount(getDocuments().length)} />
