@@ -62,6 +62,83 @@ export function setChunkSize(size: number) {
   localStorage.setItem(CHUNK_SIZE_KEY, String(size));
 }
 
+export function getPdfJsOptions() {
+  return {
+    useWorkerFetch: false,
+    isEvalSupported: false,
+  };
+}
+
+export function shouldAttemptOcr(extractedText: string): boolean {
+  const normalized = extractedText.replace(/\s+/g, ' ').trim();
+  if (!normalized) return true;
+  if (normalized.length < 20) return true;
+  if (/\b(fnArray|argsArray|lastChunk|separateAnnots)\b/i.test(normalized)) return true;
+  return false;
+}
+
+async function getPdfWorkerUrl(): Promise<string> {
+  try {
+    const mod = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
+    return (mod as { default?: string }).default || '';
+  } catch {
+    return '';
+  }
+}
+
+async function extractPdfWithOcr(file: File): Promise<string> {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    throw new Error('OCR no disponible en este entorno');
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfjsLib = await import('pdfjs-dist');
+  const workerSrc = await getPdfWorkerUrl();
+  if (workerSrc) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+  }
+
+  const pdf = await pdfjsLib.getDocument({
+    data: arrayBuffer,
+    ...getPdfJsOptions(),
+  }).promise;
+
+  const tesseractModule = await import('tesseract.js/dist/tesseract.esm.min.js');
+  const worker = await tesseractModule.createWorker('spa');
+  try {
+    let text = '';
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 1.4 });
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+
+      if (!context) {
+        throw new Error('No se pudo crear el canvas para OCR');
+      }
+
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+
+      await page.render({ canvasContext: context, viewport }).promise;
+      const result = await worker.recognize(canvas);
+      const pageText = (result?.data?.text || '').replace(/\s+/g, ' ').trim();
+      if (pageText) {
+        text += pageText + '\n';
+      }
+    }
+
+    const normalized = text.replace(/\s+/g, ' ').trim();
+    if (shouldAttemptOcr(normalized)) {
+      throw new Error('OCR no produjo texto suficiente');
+    }
+    return normalized;
+  } finally {
+    await worker.terminate();
+  }
+}
+
 export function getDocuments(): DocumentIndex[] {
   try {
     return JSON.parse(localStorage.getItem(DOCUMENTS_KEY) || '[]');
@@ -101,18 +178,52 @@ export function extractText(file: File): Promise<string> {
         try {
           const arrayBuffer = reader.result as ArrayBuffer;
           const pdfjsLib = await import('pdfjs-dist');
-          pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-            'pdfjs-dist/build/pdf.worker.min.mjs',
-            import.meta.url
-          ).toString();
-          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          const workerSrc = await getPdfWorkerUrl();
+          if (workerSrc) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+          }
+          const pdf = await pdfjsLib.getDocument({
+            data: arrayBuffer,
+            ...getPdfJsOptions(),
+          }).promise;
+
           let text = '';
           for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            text += content.items.map((item: any) => item.str).join(' ') + '\n';
+            const content = await page.getTextContent({ normalizeWhitespace: true });
+            const rawPageText = content.items
+              .map((item: any) => (typeof item.str === 'string' ? item.str : ''))
+              .filter(Boolean)
+              .join(' ')
+              .trim();
+
+            const cleanedPageText = rawPageText
+              .replace(/\b(fnArray|argsArray|lastChunk|separateAnnots|fnArray)\b/gi, '')
+              .replace(/\{[^{}]*\}/g, '')
+              .replace(/\[\d+(?:,\d+)*\]/g, '')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            if (cleanedPageText && cleanedPageText.length > 3) {
+              text += cleanedPageText + '\n';
+            }
           }
-          resolve(text.trim());
+
+          const normalized = text
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          if (shouldAttemptOcr(normalized)) {
+            try {
+              const ocrText = await extractPdfWithOcr(file);
+              resolve(ocrText);
+              return;
+            } catch {
+              reject(new Error('No se pudo extraer texto legible del PDF. Probá con un PDF que tenga texto real o con un archivo escaneado que pueda procesarse con OCR.'));
+              return;
+            }
+          }
+          resolve(normalized);
         } catch (e) {
           reject(new Error('Error extrayendo PDF: ' + (e as Error).message));
         }

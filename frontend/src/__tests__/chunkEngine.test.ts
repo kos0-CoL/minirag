@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { chunkText, getChunkSize, setChunkSize } from '@/utils/chunkEngine';
+import { chunkText, getChunkSize, getPdfJsOptions, setChunkSize, shouldAttemptOcr } from '@/utils/chunkEngine';
 
 beforeEach(() => {
   localStorage.clear();
@@ -45,5 +45,21 @@ describe('getChunkSize / setChunkSize', () => {
   it('reads from localStorage', () => {
     setChunkSize(500);
     expect(getChunkSize()).toBe(500);
+  });
+});
+
+describe('getPdfJsOptions', () => {
+  it('keeps pdf.js options compatible with browser/Vite environments', () => {
+    const options = getPdfJsOptions();
+    expect(options.useWorkerFetch).toBe(false);
+    expect(options.isEvalSupported).toBe(false);
+  });
+});
+
+describe('shouldAttemptOcr', () => {
+  it('flags noisy or very short extracted text as needing OCR fallback', () => {
+    expect(shouldAttemptOcr('fnArray argsArray')).toBe(true);
+    expect(shouldAttemptOcr('   ')).toBe(true);
+    expect(shouldAttemptOcr('Texto legible extraido correctamente de un PDF real')).toBe(false);
   });
 });
