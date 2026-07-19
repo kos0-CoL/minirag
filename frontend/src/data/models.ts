@@ -21,6 +21,17 @@ export const PROVIDER_MODELS: ProviderModel[] = [
   { id: 'mistral-large-latest', nombre: 'Mistral Large', provider: 'MISTRAL' },
 ];
 
+export interface ProviderSelection {
+  provider: string;
+  apiKey: string;
+}
+
+export function getProviderForModel(modelId: string, apiKeys: Record<string, string>): ProviderSelection {
+  const provider = PROVIDER_MODELS.find(m => m.id === modelId)?.provider || 'GEMINI';
+  const apiKey = apiKeys[provider] || '';
+  return { provider, apiKey };
+}
+
 export function getAvailableModels(apiKeys: Record<string, string>): ProviderModel[] {
   const active = Object.entries(apiKeys)
     .filter(([_, val]) => val && val.length > 5)
