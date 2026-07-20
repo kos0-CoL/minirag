@@ -231,7 +231,6 @@ RESPUESTA:
 
       const data = response.data;
       if (!data || !Array.isArray(data.candidates) || data.candidates.length === 0) {
-        console.error('Gemini response missing candidates:', JSON.stringify(data, null, 2));
         throw new Error('Gemini response did not include candidates');
       }
 
@@ -239,17 +238,14 @@ RESPUESTA:
       const text = candidate?.content?.parts?.[0]?.text;
 
       if (!text) {
-        console.error('Gemini candidate shape unexpected:', JSON.stringify(candidate, null, 2));
         throw new Error('Gemini response candidate is missing expected text');
       }
 
       return text;
     } catch (error) {
       const responseData = error.response?.data;
-      console.error('Error Gemini:', responseData || error.message);
-      if (responseData) {
-        console.error('Gemini raw error response:', JSON.stringify(responseData, null, 2));
-      }
+      const errorCode = responseData?.error?.code || responseData?.status || 'unknown';
+      console.error(`Gemini API error [${errorCode}]:`, error.message);
       throw new Error(`Error calling Gemini API: ${error.message}`);
     }
   }

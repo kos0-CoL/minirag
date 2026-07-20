@@ -22,7 +22,6 @@ export function useGoogleAuth() {
     }
 
     if (code) {
-      console.log('Google OAuth code received, exchanging...');
       handleGoogleCallback(code);
     }
   }, [searchParams]);
@@ -31,18 +30,14 @@ export function useGoogleAuth() {
     setLoading(true);
     setError('');
     try {
-      console.log('Sending code to backend...');
       const data: any = await apiClient.googleAuth(code);
-      console.log('Backend response:', data);
       if (!data?.user) throw new Error('Invalid server response');
       setUserProfile(data.user);
       setToken(data.token);
-      console.log('Google auth successful, navigating to /chat');
       // Limpiar los parámetros de la URL
       setSearchParams({});
       navigate('/chat');
     } catch (err: any) {
-      console.error('Google auth error:', err);
       const errorMsg = err?.error || err?.message || 'Error authenticating with Google';
       setError(errorMsg);
       setSearchParams({});
