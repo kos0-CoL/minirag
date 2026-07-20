@@ -16,7 +16,8 @@ class QueryService {
       modoRespuesta = 'detailed',
       historial = [],
       followUp = false,
-      instrucciones = null
+      instrucciones = null,
+      embeddingAlternativo = false
     } = options;
 
     try {
@@ -26,7 +27,7 @@ class QueryService {
         contexto = `Contexto proporcionado por el usuario:\n${contextoProporcionado}`;
         docsUsados = [];
       } else if (chat) {
-        const chunks = await this.retrieval(query, chat, k);
+        const chunks = await this.retrieval(query, chat, k, { modelo, apiKey, embeddingAlternativo });
         docsUsados = chunks.map(c => c.documentoId);
         contexto = this.construirContexto(chunks, query);
       } else {
@@ -61,9 +62,9 @@ class QueryService {
     }
   }
 
-  async retrieval(query, chat, k) {
+  async retrieval(query, chat, k, options = {}) {
     const chunkRepo = getRepository(DocumentChunk);
-    const queryEmbedding = await this.obtenerEmbedding(query);
+    const queryEmbedding = await this.obtenerEmbedding(query, options);
 
     const chunks = await chunkRepo
       .createQueryBuilder('chunk')
@@ -72,7 +73,7 @@ class QueryService {
       .take(k * 2)
       .getMany();
 
-    if (chunks.length > 0 && chunks[0].embedding) {
+    if (queryEmbedding && chunks.length > 0 && chunks[0].embedding) {
       chunks.forEach(chunk => {
         chunk.score = this.similitudCoseno(queryEmbedding, chunk.embedding);
       });
@@ -82,15 +83,79 @@ class QueryService {
     return chunks.slice(0, k);
   }
 
-  async obtenerEmbedding(texto) {
+  async obtenerEmbedding(texto, options = {}) {
+    const { modelo = 'gemini-pro', apiKey, embeddingAlternativo = false } = options;
+
+    // Si el usuario eligió embeddings alternativos (Hugging Face)
+    if (embeddingAlternativo) {
+      return this.obtenerEmbeddingHuggingFace(texto);
+    }
+
+    // Detectar proveedor del modelo seleccionado
+    const proveedor = this.detectarProveedor(modelo);
+
     try {
-      const response = await axios.post(
-        'https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent',
-        { content: { parts: [{ text: texto }] } },
-        { params: { key: process.env.GEMINI_API_KEY }, headers: { 'Content-Type': 'application/json' } }
-      );
-      return response.data.embedding.values;
+      if (proveedor === 'MISTRAL') {
+        return await this.obtenerEmbeddingMistral(texto, apiKey);
+      }
+      // Default: Gemini (funciona para Gemini, y fallback para otros)
+      return await this.obtenerEmbeddingGemini(texto, apiKey);
     } catch (error) {
+      console.error(`Error obteniendo embedding con ${proveedor}:`, error.message);
+      // Fallback a Hugging Face si el proveedor principal falla
+      console.log('Fallback a embeddings de Hugging Face...');
+      return this.obtenerEmbeddingHuggingFace(texto);
+    }
+  }
+
+  detectarProveedor(modelo) {
+    if (!modelo) return 'GEMINI';
+    const modeloLower = modelo.toLowerCase();
+    if (modeloLower.includes('mistral')) return 'MISTRAL';
+    if (modeloLower.includes('gpt') || modeloLower.includes('openai')) return 'OPENAI';
+    if (modeloLower.includes('claude') || modeloLower.includes('anthropic')) return 'ANTHROPIC';
+    if (modeloLower.includes('command') || modeloLower.includes('cohere')) return 'COHERE';
+    return 'GEMINI';
+  }
+
+  async obtenerEmbeddingGemini(texto, apiKey) {
+    const key = apiKey || process.env.GEMINI_API_KEY;
+    if (!key) throw new Error('No hay API key de Gemini disponible');
+
+    const response = await axios.post(
+      'https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent',
+      { content: { parts: [{ text: texto }] } },
+      { params: { key }, headers: { 'Content-Type': 'application/json' } }
+    );
+    return response.data.embedding.values;
+  }
+
+  async obtenerEmbeddingMistral(texto, apiKey) {
+    if (!apiKey) throw new Error('No hay API key de Mistral disponible');
+
+    const response = await axios.post(
+      'https://api.mistral.ai/v1/embeddings',
+      {
+        model: 'mistral-embed',
+        input: texto
+      },
+      { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' } }
+    );
+    return response.data.data[0].embedding;
+  }
+
+  async obtenerEmbeddingHuggingFace(texto) {
+    try {
+      // Hugging Face Inference API - modelo gratuito all-MiniLM-L6-v2
+      const response = await axios.post(
+        'https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2',
+        { inputs: texto },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      // El modelo retorna un array de arrays, tomamos el primero
+      return Array.isArray(response.data[0]) ? response.data[0] : response.data;
+    } catch (error) {
+      console.error('Error con Hugging Face:', error.message);
       return null;
     }
   }

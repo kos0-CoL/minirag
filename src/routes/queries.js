@@ -11,7 +11,7 @@ const router = Router();
 
 router.post('/ask', validateQuery, async (req, res, next) => {
   try {
-    const { chatId, query, agente, instrucciones, modelo, k = 3, modo = 'default', followUp = false, contexto, modoRespuesta, historial, apiKey } = req.body;
+    const { chatId, query, agente, instrucciones, modelo, k = 3, modo = 'default', followUp = false, contexto, modoRespuesta, historial, apiKey, embeddingAlternativo = false } = req.body;
     const usuarioId = req.user.id;
 
     const chatRepo = getRepository(Chat);
@@ -38,7 +38,7 @@ router.post('/ask', validateQuery, async (req, res, next) => {
       result = await queryService.procesarQuery(query, chat, usuarioId, {
         agente, modelo, k, modo,
         apiKey: apiKey || process.env.GEMINI_API_KEY,
-        contexto, modoRespuesta, historial, followUp, instrucciones
+        contexto, modoRespuesta, historial, followUp, instrucciones, embeddingAlternativo
       });
 
       const ttl = 24 * 60 * 60 * 1000;
