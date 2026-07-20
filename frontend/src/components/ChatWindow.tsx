@@ -27,6 +27,7 @@ export default function ChatWindow() {
   const [docsCount, setDocsCount] = useState(0);
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
   const [showDocPanel, setShowDocPanel] = useState(false);
+  const [embeddingAlternativo, setEmbeddingAlternativo] = useState(false);
 
   const toggleDoc = (id: string) => {
     setSelectedDocIds(prev => toggleDocumentSelection(prev, id));
@@ -157,6 +158,7 @@ RESPUESTA:`;
             apiKey: modeloApiKey,
             modoRespuesta, followUp,
             historial: followUp ? historialContexto : [],
+            embeddingAlternativo,
           },
           contexto || undefined
         );
@@ -296,6 +298,13 @@ RESPUESTA:`;
             <MessageSquare className="w-3 h-3" /> Follow-up
           </button>
 
+          <button type="button" onClick={() => setEmbeddingAlternativo(!embeddingAlternativo)}
+            className="px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition"
+            title="Usar modelo gratuito de Hugging Face para embeddings (alternativa a la API del proveedor)"
+            style={{ backgroundColor: embeddingAlternativo ? 'var(--theme-accent-light)' : 'var(--theme-bg-chat)', color: embeddingAlternativo ? 'var(--theme-primary)' : 'var(--theme-text-secondary)' }}>
+            <Sparkles className="w-3 h-3" /> Embeddings HF
+          </button>
+
           {kResultados > 1 && (
             <span className="text-[10px]" style={{ color: 'var(--theme-text-secondary)' }}>K={kResultados}</span>
           )}
@@ -346,6 +355,19 @@ RESPUESTA:`;
             <Search className="w-3.5 h-3.5" style={{ color: 'var(--theme-text-secondary)' }} />
             <span style={{ color: 'var(--theme-text-secondary)' }}>
               Modo búsqueda automática — se usarán los {kResultados || 3} chunks más relevantes
+            </span>
+          </div>
+        )}
+
+        {embeddingAlternativo && (
+          <div className="px-4 py-1.5 flex items-center gap-2 text-xs"
+            style={{
+              backgroundColor: '#fef3c7',
+              borderTop: '1px solid var(--theme-border)',
+            }}>
+            <Sparkles className="w-3.5 h-3.5" style={{ color: '#f59e0b' }} />
+            <span style={{ color: '#92400e' }}>
+              Embeddings alternativos activos — usando Hugging Face (sentence-transformers/all-MiniLM-L6-v2)
             </span>
           </div>
         )}

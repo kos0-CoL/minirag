@@ -150,6 +150,72 @@ export default function SettingsPage() {
             <span>1</span><span>10</span>
           </div>
         </div>
+
+        {/* Embeddings Configuration */}
+        <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--theme-bg-card)', border: '1px solid var(--theme-border)' }}>
+          <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--theme-text)' }}>
+            Configuración de Embeddings
+          </h3>
+
+          <div className="space-y-3 text-xs" style={{ color: 'var(--theme-text-secondary)' }}>
+            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--theme-bg-chat)' }}>
+              <p className="font-medium mb-1" style={{ color: 'var(--theme-text)' }}>
+                ¿Qué son los embeddings?
+              </p>
+              <p>
+                Los embeddings convierten el texto en vectores numéricos para encontrar documentos similares.
+                Por defecto, se usa el mismo proveedor que seleccionaste para generar respuestas (Gemini, Mistral, etc.).
+              </p>
+            </div>
+
+            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--theme-bg-chat)' }}>
+              <p className="font-medium mb-1" style={{ color: 'var(--theme-text)' }}>
+                Embeddings alternativos (Hugging Face)
+              </p>
+              <p>
+                Si activás la opción <strong>"Embeddings HF"</strong> en el chat, se usará el modelo gratuito
+                <code className="mx-1 px-1 rounded" style={{ backgroundColor: 'var(--theme-bg-sidebar)' }}>
+                  sentence-transformers/all-MiniLM-L6-v2
+                </code>
+                de Hugging Face.
+              </p>
+              <ul className="mt-2 space-y-1 list-disc list-inside">
+                <li>No requiere API key</li>
+                <li>Funciona como fallback si el proveedor principal falla</li>
+                <li>Ideal para pruebas o cuando no tenés API key del proveedor</li>
+              </ul>
+            </div>
+
+            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--theme-bg-chat)' }}>
+              <p className="font-medium mb-1" style={{ color: 'var(--theme-text)' }}>
+                Proveedores de embeddings soportados
+              </p>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                  <span>Gemini (text-embedding-004)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                  <span>Mistral (mistral-embed)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                  <span>Hugging Face (all-MiniLM-L6-v2)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                  <span>OpenAI (text-embedding-ada-002)</span>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-[10px] italic" style={{ color: 'var(--theme-text-secondary)' }}>
+              Nota: Para configurar embeddings personalizados (local o API), próximamente se habilitará
+              un módulo avanzado de configuración de embeddings.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
